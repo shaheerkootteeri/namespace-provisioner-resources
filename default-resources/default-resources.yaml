@@ -1,0 +1,169 @@
+#@ load("@ytt:data", "data")
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: default-resources
+  namespace: tap-namespace-provisioning
+  annotations:
+    kapp.k14s.io/create-strategy: fallback-on-update
+    namespace-provisioner.apps.tanzu.vmware.com/no-overwrite: "" #! Do not reconcile
+type: Opaque
+stringData:
+  content.yaml: |
+    #@ load("@ytt:data", "data")
+    #@ load("@ytt:yaml", "yaml")
+    ---
+    apiVersion: kapp.k14s.io/v1alpha1
+    kind: Config
+    minimumRequiredVersion: 0.23.0
+    rebaseRules:
+    - paths:
+      - [data]
+      - [metadata, labels]
+      - [metadata, annotations]
+      type: copy
+      sources: [existing, new]
+      resourceMatchers:
+      - andMatcher:
+          matchers:
+          - anyMatcher:
+              matchers:
+              - apiVersionKindMatcher: {apiVersion: v1, kind: Secret}
+              - apiVersionKindMatcher: {apiVersion: v1, kind: ConfigMap}
+          - hasAnnotationMatcher:
+              keys:
+              - namespace-provisioner.apps.tanzu.vmware.com/no-overwrite
+
+    ---
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: reg-cred
+      annotations:
+        secretgen.carvel.dev/image-pull-secret: ""
+        kapp.k14s.io/create-strategy: fallback-on-update
+    type: kubernetes.io/dockerconfigjson
+    data:
+      .dockerconfigjson: e30K
+    ---
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: default
+      annotations:
+        kapp.k14s.io/create-strategy: fallback-on-update
+        namespace-provisioner.apps.tanzu.vmware.com/no-overwrite: "" #! Do not reconcile
+    secrets:
+      - name: reg-cred
+    imagePullSecrets:
+      - name: reg-cred
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: default-permit-deliverable
+      annotations:
+        kapp.k14s.io/create-strategy: fallback-on-update
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: deliverable
+    subjects:
+      - kind: ServiceAccount
+        name: #@ service_account
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: default-permit-workload
+      annotations:
+        kapp.k14s.io/create-strategy: fallback-on-update
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: workload
+    subjects:
+      - kind: ServiceAccount
+        name: #@ service_account
+    ---
+    apiVersion: scanning.apps.tanzu.vmware.com/v1beta1
+    kind: ScanPolicy
+    metadata:
+      name: scan-policy
+      annotations:
+        kapp.k14s.io/create-strategy: fallback-on-update
+        namespace-provisioner.apps.tanzu.vmware.com/no-overwrite: "" #! Do not reconcile
+    spec:
+      #@yaml/text-templated-strings
+      regoFile: |
+        package main
+
+        notAllowedSeverities := ["UnknownSeverity"]
+        ignoreCves := []
+
+        contains(array, elem) = true {
+          array[_] = elem
+        } else = false { true }
+
+        isSafe(match) {
+          fails := contains(notAllowedSeverities, match.ratings.rating[_])
+          not fails
+        }
+
+        isSafe(match) {
+          ignore := contains(ignoreCves, match.Id)
+          ignore
+        }
+
+        deny[msg] {
+          comp := input.bom.components.component[_]
+          vuln := comp.vulnerabilities.vulnerability[_]
+          ratings := vuln.ratings.rating[_]
+          not isSafe(vuln)
+          msg = sprintf("CVE %s %s %s", [comp.name, vuln.id, ratings])
+        }
+    ---
+    apiVersion: tekton.dev/v1beta1
+    kind: Pipeline
+    metadata:
+      name: developer-defined-tekton-pipeline
+      labels:
+        apps.tanzu.vmware.com/pipeline: test
+      annotations:
+        kapp.k14s.io/create-strategy: fallback-on-update
+        doc: #@ data.values.no_reconcile_doc
+        namespace-provisioner.apps.tanzu.vmware.com/no-overwrite: "" #! Do not reconcile
+    spec:
+      params:
+        - name: source-url
+        - name: source-revision
+      tasks:
+        - name: test
+          params:
+            - name: source-url
+              value: $(params.source-url)
+            - name: source-revision
+              value: $(params.source-revision)
+          taskSpec:
+            params:
+              - name: source-url
+              - name: source-revision
+            steps:
+              - name: test
+                image: gradle
+                script: |-
+                  cd `mktemp -d`
+                  wget -qO- $(params.source-url) | tar xvz -m
+                  pwd
+                  MVNW=mvnw
+                  GRADLE="build.gradle"
+                  if [ -f "$MVNW" ]; then
+                      ./mvnw test
+                  elif [ -f "$GRADLE" ]; then
+                      gradle test --debug
+                  else
+                      echo "Error no GRADLE nor MAVEN found"
+                      #exit 1
+                  fi

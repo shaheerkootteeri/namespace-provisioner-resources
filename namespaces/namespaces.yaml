@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: desired-namespaces
+  namespace: tap-namespace-provisioning
+  annotations:
+    kapp.k14s.io/create-strategy: fallback-on-update
+data:
+  namespaces.yaml: |
+    #@data/values
+    ---
+    namespaces:
+    - name: op-dev
+      sa-alias: operations
+    - name: fin-dev
+      type: finance
+    - name: mng-dev
+      type: management
+
