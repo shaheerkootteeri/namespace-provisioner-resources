@@ -1,32 +1,26 @@
 #@ load("@ytt:overlay", "overlay")
----
+#@  def customize():
 
-#@overlay/match by=overlay.subset({"apiVersion": "scanning.apps.tanzu.vmware.com/v1beta1", "kind": "ScanPolicy"}), expects="0+"
+#@overlay/match by=overlay.subset({"apiVersion": "scanning.apps.tanzu.vmware.com/v1beta1", "kind": "ScanPolicy","metadata":{"name":"scan-policy"}}), expects="0+"
 ---
-#@overlay/merge expects="0+"
 spec:
   #@overlay/match missing_ok=True
   regoFile: |
     package main
-
     # This is a custom script for scan policy from GitOps allowing all the severities (notAllowedSeverities)
     notAllowedSeverities := []
     ignoreCves := []
-
     contains(array, elem) = true {
       array[_] = elem
     } else = false { true }
-
     isSafe(match) {
       fails := contains(notAllowedSeverities, match.ratings.rating[_])
       not fails
     }
-
     isSafe(match) {
       ignore := contains(ignoreCves, match.Id)
       ignore
     }
-
     deny[msg] {
       comp := input.bom.components.component[_]
       vuln := comp.vulnerabilities.vulnerability[_]
@@ -34,4 +28,4 @@ spec:
       not isSafe(vuln)
       msg = sprintf("CVE %s %s %s", [comp.name, vuln.id, ratings])
     }
-
+#@  end
