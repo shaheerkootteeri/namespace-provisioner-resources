@@ -6,6 +6,7 @@ metadata:
   namespace: tap-namespace-provisioning
   annotations:
     kapp.k14s.io/create-strategy: fallback-on-update
+    namespace-provisioner.apps.tanzu.vmware.com/no-overwrite: "" #! Do not reconcile
 data:
   namespaces.yaml: |
     #@data/values
