@@ -1,5 +1,5 @@
 #@ load("@ytt:data", "data")
-#@ if/end data.values.language == "python"
+#@ if/end data.values.language == "python":
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
