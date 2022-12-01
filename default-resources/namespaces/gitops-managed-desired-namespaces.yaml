@@ -6,16 +6,15 @@ metadata:
   namespace: tap-namespace-provisioning
   annotations:
     kapp.k14s.io/create-strategy: fallback-on-update
-    namespace-provisioner.apps.tanzu.vmware.com/no-overwrite: "" #! Do not reconcile
+    namespace-provisioner.apps.tanzu.vmware.com/no-overwrite: "" #! This annotation tells the provisioner app to not override this configMap as this is your desired state.
 data:
   namespaces.yaml: |
     #@data/values
     ---
     namespaces:
-    - name: op-dev
-      sa-alias: operations
+    - name: web-dev
+      type: website
     - name: fin-dev
       type: finance
     - name: mng-dev
       type: management
-

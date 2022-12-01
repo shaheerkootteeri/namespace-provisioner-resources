@@ -1,5 +1,5 @@
 #@ load("@ytt:overlay", "overlay")
-#@  def customize():
+#@ def customize():
 
 #@overlay/match by=overlay.subset({"apiVersion": "scanning.apps.tanzu.vmware.com/v1beta1", "kind": "ScanPolicy","metadata":{"name":"scan-policy"}}), expects="0+"
 ---
