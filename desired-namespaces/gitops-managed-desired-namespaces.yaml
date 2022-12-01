@@ -12,9 +12,8 @@ data:
     #@data/values
     ---
     namespaces:
-    - name: web-dev
-      type: website
-    - name: fin-dev
-      type: finance
-    - name: mng-dev
-      type: management
+    - name: python-backend-app
+      language: python
+      scanpolicy: snyk
+    - name: angular-fe-app
+      language: angular
