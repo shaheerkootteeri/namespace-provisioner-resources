@@ -4,7 +4,7 @@
 #@ end
 #@ if/end in_list('supply_chain', ['testing_scanning']) and in_list('profile', ['full', 'build']):
 ---
-aapiVersion: scanning.apps.tanzu.vmware.com/v1beta1
+apiVersion: scanning.apps.tanzu.vmware.com/v1beta1
 kind: ScanPolicy
 metadata:
   name: scan-policy
